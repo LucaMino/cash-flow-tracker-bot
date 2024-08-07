@@ -57,10 +57,10 @@ def format_db_date(input_date):
 # connect db
 def connect_db():
     conn = pymysql.connect(
-        host='mysql',
-        user='root',
-        password='password',
-        db='cash-flow-tracker-bot',
+        host=os.getenv('DB_HOST'),
+        user=os.getenv('DB_USER'),
+        password=os.getenv('DB_PASSWORD'),
+        db=os.getenv('DB_NAME'),
         charset='utf8mb4',
         cursorclass=pymysql.cursors.DictCursor
     )
@@ -70,21 +70,37 @@ def insert_db(conn, sql, values):
     try:
         with conn.cursor() as cursor:
             cursor.execute(sql, (values))
-
         conn.commit()
     except Exception as e:
         print(f"Error: {e}")
 
-def save_transaction(conn, transaction):
+def save_transaction(conn, transaction, chat_id):
     # create sql script
-    sql = "INSERT INTO transactions (category, amount, payment_method, note, paid_at) VALUES (%s, %s, %s, %s, %s)"
+    sql = "INSERT INTO transactions (category, amount, payment_method, note, paid_at, openai_response_chat_id) VALUES (%s, %s, %s, %s, %s, %s)"
     # set values
     values = [
         transaction['category'].lower(),
         transaction['amount'],
         transaction['payment_method'].lower(),
         transaction['note'].lower(),
-        format_db_date(transaction['date'])
+        format_db_date(transaction['date']),
+        chat_id
     ] #
     # save
     insert_db(conn, sql, values)
+
+def save_openai_response(conn, response):
+    # create sql script
+    sql = "INSERT INTO openai_responses (chat_id, response, completion_tokens, prompt_tokens, total_tokens) VALUES (%s, %s, %s, %s, %s)"
+    # set values
+    values = [
+        response.id,
+        response.choices[0].message.content,
+        response.usage.completion_tokens,
+        response.usage.prompt_tokens,
+        response.usage.total_tokens
+    ]
+    # save
+    insert_db(conn, sql, values)
+
+    return response.id
