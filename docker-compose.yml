@@ -3,17 +3,20 @@ version: '3.8'
 services:
   script:
     build: .
-    container_name: python_script
-    # depends_on:
-    #   - db
-    # environment:
-    #   - DATABASE_URL=mysql+pymysql://root:password@db:3306/my_database
+    depends_on:
+      - mysql
 
-  # db:
-  #   image: mysql:8.0
-  #   container_name: my_mysql_db
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: password
-  #     MYSQL_DATABASE: my_database
-  #   ports:
-  #     - "3306:3306"
+  mysql:
+    image: mariadb:10.6
+    restart: unless-stopped
+    tty: true
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: cash-flow-tracker-bot
+    volumes:
+      - dbdata:/var/lib/mysql
+
+volumes:
+  dbdata:

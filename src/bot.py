@@ -9,50 +9,57 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 # load .env
 load_dotenv()
 
+# save conn
+CONN = helper.connect_db()
+
 # retrieve telegram bot token
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 
 # start function
 async def start(update: Update, context: CallbackContext) -> None:
-    await update.message.reply_text('Ciao! Dimmi le spese di oggi o di qualunque giorno e traccierò tutto!')
+    await update.message.reply_text(helper.config('telegram.message.start'))
 
 # handle message function
 async def handle_message(update: Update, context: CallbackContext) -> None:
     # retrieve message
     message = update.message.text
 
-    await update.message.reply_text(f'Sto parlando con OpenAI...')
+    await update.message.reply_text(helper.config('telegram.message.waiting_openai'))
 
     # translate to json using openai
     openai = MyOpenAI()
     openai_response = openai.get_response(message)
 
     if openai_response is None:
-        await update.message.reply_text(f'Ops! Non riesco a capire bene!')
+        await update.message.reply_text(helper.config('telegram.message.error_openai'))
     else:
         print('openai_response: ' + openai_response)
 
-        await update.message.reply_text(f'Sto salvando...')
+        await update.message.reply_text(helper.config('telegram.message.waiting'))
 
         try:
             # retrieve clean transactions structure
             transactions = helper.sanitize_response(openai_response)
 
+            print(transactions)
+
             if not isinstance(transactions, list):
-                raise TypeError("Decoded content is not a list")
+                raise TypeError('Decoded content is not a list')
 
             # create new GoogleSheetService
             g_sheet_service = GoogleSheetService()
 
             # loop transactions
             for transaction in transactions:
+                # save on db
+                helper.save_transaction(CONN, transaction)
                 # save on google sheets
                 g_sheet_service.add_transaction(transaction)
 
-            await update.message.reply_text(f'Salvato con successo')
+            await update.message.reply_text(helper.config('telegram.message.success'))
 
         except Exception as e:
-            await update.message.reply_text(f'Ops! Non riesco a salvare su google sheet!')
+            await update.message.reply_text(helper.config('telegram.message.exception'))
 
 def main():
     # build application
